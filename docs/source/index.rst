@@ -9,3 +9,13 @@ This documentation demonstrates practical experience in:
 - AWS environment ownership
 
 Each section reflects real-world production practices and operational decision-making.
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+   iam-risk-reduction
+   restore-testing
+   terraform-governance
+   cicd-governance
+   aws-environment
