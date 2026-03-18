@@ -1,64 +1,51 @@
 Q. Last restore test you ran (what failed, what changed after)
 ==============================================================
 
-Across my experience, starting from IBM and continuing through enterprise AWS environments (OpenText, Diehl Metering), I have consistently treated disaster recovery as an operational responsibility rather than a theoretical setup.
+Across my experience from IBM to AWS environments at OpenText and Diehl Metering, I treat disaster recovery as something that must be tested in real scenarios, not just designed.
 
-In IBM, I worked in a hybrid DR model between AWS and on-premise datacenter environments, where recovery required coordination between cloud services and physical infrastructure teams. This established a strong foundation in understanding real-world recovery dependencies.
-
-In later AWS environments, I worked with multi-region, high-availability platforms supporting enterprise workloads with strict SLA and compliance requirements.
-
+One practical restore scenario I handled was in a pre-production AWS environment where an incorrect Terraform change was merged by an apprentice, which unintentionally overrode parts of the infrastructure and caused a major disruption.
 
 Restore Scenario
 ----------------
-- Multi-region AWS production workload
-- Recovery of application stack backed by RDS and supporting infrastructure
-- Validation through controlled restore / tabletop exercises simulating region-level or service-level failures
+- Pre-production AWS environment managed via Terraform  
+- Incorrect PR merge led to unintended infrastructure changes  
+- Required restoring environment to last known stable state  
 
-Findings
---------
-During restore validation and tabletop exercises, the following gaps were identified:
-
-- Recovery time exceeded expected RTO due to manual dependencies
-- Infrastructure rebuild required implicit knowledge (not fully automated)
-- Application configurations were environment-dependent and not fully externalised
-- Coordination gaps between teams (application vs infrastructure)
+What Failed
+-----------
+- Infrastructure state was impacted due to incorrect Terraform apply  
+- Some resources were modified or recreated unexpectedly  
+- Dependency issues appeared between services after the change  
 
 Actions Taken
 -------------
-- Improved infrastructure recoverability:
-  - Standardised infrastructure recreation using Terraform
-  - Ensured reproducible environments across regions
+- Identified last known good Terraform state from remote backend (S3)  
+- Reverted Terraform code to previous stable version  
+- Re-ran Terraform apply to bring infrastructure back to expected state  
 
-- Reduced manual dependencies:
-  - Defined clear recovery workflows
-  - Eliminated ad-hoc steps in restoration process
+- Validated services after restore:
+  - Checked application connectivity  
+  - Verified dependent services and configurations  
 
-- Externalised application configuration:
-  - Moved configurations to environment variables and parameter management systems
-  - Reduced dependency on hardcoded values
+- Analysed root cause of failure:
+  - Lack of strict validation before merge  
+  - Insufficient guardrails for production-like environments  
 
-- Introduced structured DR validation approach:
-  - Conducted tabletop exercises to simulate failure scenarios
-  - Ensured teams understood recovery responsibilities and sequence
+What Changed After
+-------------------
+- Introduced stricter PR review and approval process  
+- Added validation checks in CI/CD before Terraform apply  
+- Restricted who can approve infrastructure changes  
+- Improved separation between environments (pre-prod vs prod controls)  
 
-- Created and refined recovery runbooks:
-  - Step-by-step recovery procedures
-  - Defined ownership and escalation paths
-
-RTO / RPO Understanding in Practice
-----------------------------------
-- RTO (Recovery Time Objective):
-  Focused on reducing recovery time by automating infrastructure rebuild and minimising manual intervention.
-
-- RPO (Recovery Point Objective):
-  Ensured backup frequency and replication strategies aligned with acceptable data loss thresholds.
-
-These were validated not just through configuration, but through actual restore and simulation exercises.
+- Strengthened Terraform workflow:
+  - Better plan review visibility  
+  - Clear rollback approach using previous state  
 
 Outcome
 -------
-- Reduced recovery time through automation and standardisation
-- Improved confidence in disaster recovery readiness across teams
-- Eliminated hidden dependencies in recovery workflows
-- Established repeatable and testable DR processes
-- Strengthened platform resilience for enterprise workloads
+- Successfully restored infrastructure to stable state  
+- Reduced risk of similar issues through stronger controls  
+- Improved confidence in recovery using Terraform state  
+
+This reinforced the importance of treating Terraform state and version control as a recovery mechanism, not just a deployment tool.
