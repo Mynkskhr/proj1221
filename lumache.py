@@ -1,5 +1,5 @@
 """
-Lumache - Python library for cooks and food lovers.
+Rem Waste Management
 """
 
 __version__ = "0.1.0"
