@@ -1,86 +1,78 @@
 Q. How you run Terraform in prod (modules/state/approvals/drift)
 ================================================================
 
-Structure
----------
-- Modular architecture:
-  - Reusable modules for networking, compute, IAM, storage
-- Environment separation:
-  - ``dev``, ``staging``, ``prod``
+In my experience at OpenText and Diehl Metering, Terraform is the single source of truth for infrastructure.
 
-State Management
-----------------
-- Remote backend:
-  - S3 bucket for state storage
-  - DynamoDB table for state locking
-- Restricted access via IAM policies
-
-How I Run Terraform in Production
-=================================
-
-In my experience across AWS environments at OpenText and Diehl Metering, Terraform is not just used as a tool, but as the standard way to manage infrastructure in production.
-
-I follow a simple principle: no direct changes in AWS — everything goes through Terraform.
+My core principle is simple: no direct changes in AWS — everything goes through Terraform and CI/CD.
 
 Modules and Structure
 ---------------------
-I use modular Terraform design to keep things reusable and consistent.
+I use a modular structure to make infrastructure reusable and consistent across accounts.
 
-- Separate modules for networking, IAM, compute, etc.
-- Environments split into ``dev``, ``staging``, and ``prod``
-- Common naming and tagging across resources
+- Separate modules for networking, IAM, compute, and storage  
+- Environment separation: ``dev``, ``staging``, ``prod``  
+- Standard naming, tagging, and account-level structure  
 
-This helps in scaling across multiple accounts and keeping configurations predictable.
+This allows the same patterns to scale across multi-account environments while keeping configurations predictable.
 
 State Management
 ----------------
-For production, I always use remote state.
+For production, I always use remote state:
 
-- S3 bucket for storing Terraform state
-- DynamoDB for state locking
-- Access restricted via IAM
+- S3 bucket for state storage (with versioning enabled)  
+- DynamoDB for state locking  
+- IAM-restricted access to state  
 
-This avoids conflicts and ensures only controlled changes happen.
+This ensures:
+- no concurrent changes  
+- safe recovery of previous state if needed  
+- controlled access to production infrastructure  
 
 Approvals and Workflow
 ----------------------
-All Terraform changes go through Git and CI/CD.
+All Terraform changes are controlled through GitLab CI/CD.
 
-Day-to-day flow:
-- Raise a merge request
-- Pipeline runs ``terraform plan``
-- Plan is reviewed
-- Production apply is manually approved
+Typical flow:
 
-No one applies changes directly from their laptop to production.
+- Engineer raises a merge request  
+- Pipeline runs validation, security checks, and ``terraform plan``  
+- Plan is reviewed before approval  
+- Production apply is manually approved  
 
-This gives control, auditability, and reduces risk.
+No one applies Terraform directly from their local machine to production.
+
+Example:
+During a change in pre-production, a bad PR caused unintended infrastructure changes. We reverted to the previous commit and re-applied Terraform, restoring the environment quickly.
+
+This shows Terraform is not just for provisioning, but also for controlled rollback.
 
 Drift Detection (Day-to-Day)
 ----------------------------
-In real environments, drift happens — someone changes something in AWS console, or during incidents.
+Drift happens in real environments, especially during incidents or manual fixes.
 
-To handle this:
+My approach:
 
-- I run regular ``terraform plan`` checks via pipeline
+- Run scheduled ``terraform plan`` checks via pipeline  
 - If drift is detected:
-  - I check what changed (CloudTrail helps)
-  - Decide if the change is valid or not
+  - Check CloudTrail to identify what changed  
+  - Validate if change was intentional  
 
 Then:
-- If valid → update Terraform code
-- If not → revert using Terraform
 
-This keeps infrastructure aligned with code.
+- If valid → update Terraform code  
+- If not → revert infrastructure using Terraform  
+
+Example:
+A security group was modified manually during troubleshooting. Drift detection caught it, and we reverted it back through Terraform to maintain consistency.
 
 Bringing Manual Resources into Terraform
 ----------------------------------------
-Sometimes resources are created manually (especially in urgent situations).
+Sometimes resources are created manually in urgent situations.
 
-If they need to stay, I bring them under Terraform control:
+If they need to be retained:
 
-- First write the Terraform resource block
-- Then import the resource into state
+- Write Terraform resource definition  
+- Import into state  
 
 Example:
 
@@ -88,23 +80,25 @@ Example:
 
    terraform import aws_s3_bucket.logs my-bucket-name
 
-After that:
-- Run ``terraform plan``
-- Fix differences until code matches actual resource
+Then:
 
-Important: I don’t blindly import — I first check if the resource is correct and secure.
+- Run ``terraform plan``  
+- Adjust code until it matches actual configuration  
+
+Important:
+I only import after validating the resource is secure and aligned with standards — I don’t bring unmanaged or risky resources into Terraform blindly.
 
 Policy Checks (OPA / Rego)
 --------------------------
-To prevent bad changes, I use policy checks in pipeline.
+To prevent unsafe changes, I enforce policy checks in CI/CD.
 
-For example, I block:
+Examples of controls:
 
-- Public access to resources
-- Over-permissive IAM policies
-- Missing required tags
+- Block public access (e.g. ``0.0.0.0/0``)  
+- Prevent overly permissive IAM policies  
+- Enforce mandatory tags  
 
-Simple example:
+Example:
 
 .. code-block:: rego
 
@@ -114,11 +108,11 @@ Simple example:
      msg := "Open access is not allowed"
    }
 
-If policy fails, pipeline fails — change doesn’t go to production.
+If policy fails, the pipeline fails — change does not proceed.
 
 Security Scanning (Checkov)
 ---------------------------
-I also scan Terraform code before apply.
+Terraform code is scanned before apply.
 
 Example GitLab stage:
 
@@ -130,20 +124,21 @@ Example GitLab stage:
      script:
        - checkov -d .
 
-This helps catch:
-- Public S3 buckets
-- Missing encryption
-- Weak configurations
+This helps detect:
+
+- Public S3 buckets  
+- Missing encryption  
+- Weak IAM or network configurations  
 
 Summary
 -------
-In production, my focus is:
+In production, I focus on:
 
-- No manual changes
-- Everything through Terraform + CI/CD
-- Strong state management
-- Controlled approvals
-- Drift detection and correction
-- Policy and security checks before apply
+- No manual infrastructure changes  
+- Terraform as single source of truth  
+- Remote state with strict access control  
+- CI/CD-driven approvals and deployments  
+- Continuous drift detection and correction  
+- Policy and security checks before apply  
 
-This approach has helped me manage AWS environments reliably at scale across multiple accounts while keeping security and control in place.
+This approach has helped me run AWS infrastructure reliably across multiple accounts, with strong control, auditability, and quick recovery when things go wrong.
