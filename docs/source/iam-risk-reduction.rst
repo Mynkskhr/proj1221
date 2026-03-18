@@ -14,10 +14,6 @@ During an IAM audit, I identified several high-risk patterns:
 
 These issues increased the risk of credential compromise, privilege escalation, and lack of traceability.
 
-Objective
----------
-Reduce identity-related risk by eliminating long-lived credentials, enforcing least privilege, and standardising IAM practices across accounts.
-
 Actions Taken
 -------------
 - Migrated access model from IAM users to IAM roles using STS-based temporary credentials
